@@ -50,17 +50,22 @@ jobs:
       - name: Start Ngrok tunnel
         run: |
           export NGROK_AUTHTOKEN="${{ secrets.NGROK_AUTHTOKEN }}"
-          ngrok http 5000 --log=stdout > ngrok.log 2>&1 &
+          ngrok http 5000 > ngrok.log 2>&1 &
           NGROK_PID=$!
           
           echo "Ngrok tunnel started (PID: $NGROK_PID)"
-          sleep 3
+          sleep 5
           
-          # Extract and display the public URL
-          PUBLIC_URL=$(grep -oP 'url=\K[^ ]+' ngrok.log | head -1)
-          if [ -z "$PUBLIC_URL" ]; then
-            PUBLIC_URL=$(grep -oP 'https://[a-zA-Z0-9-]+\.ngrok-free\.app' ngrok.log | head -1)
-          fi
+          # Extract URL from ngrok API
+          PUBLIC_URL=""
+          for i in {1..10}; do
+            PUBLIC_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -oP '"public_url":"\K[^"]+' | grep -i ngrok | head -1)
+            if [ -n "$PUBLIC_URL" ]; then
+              break
+            fi
+            echo "  Attempt $i/10 to get URL from ngrok..."
+            sleep 1
+          done
           
           if [ -n "$PUBLIC_URL" ]; then
             echo "=========================================="
@@ -72,8 +77,12 @@ jobs:
             echo "Tunnel will remain open for ~120 seconds..."
             echo "=========================================="
           else
-            echo "⚠ Could not extract URL from ngrok output"
+            echo "⚠ Could not extract URL from ngrok"
+            echo "Debug: ngrok.log content:"
             cat ngrok.log
+            echo ""
+            echo "Debug: ngrok API response:"
+            curl -s http://localhost:4040/api/tunnels || echo "API not available"
           fi
           
           # Keep the tunnel open for 120 seconds
