@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["exo-2-ci", "main", "develop"]
+    branches: ["exo-2-ci", "exo-3-secrets", "main", "develop"]
   pull_request:
     branches: ["main"]
 
@@ -28,8 +28,35 @@ jobs:
       - name: Run Pytest
         run: pytest -v
 
-  deploy:
+  security:
     needs: quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t atelier-devops-app:latest .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: atelier-devops-app:latest
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Check for obvious secrets in repository
+        run: |
+          if grep -RInE '(^|[^[:alnum:]_])(api[_-]?key|password|token|secret)\s*=' . --exclude-dir=.git --exclude='*.png' --exclude='*.jpg' --exclude='*.svg'; then
+            echo "Sensitive patterns detected"
+            exit 1
+          fi
+
+  deploy:
+    needs: [quality, security]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -42,9 +69,12 @@ jobs:
           docker build -t atelier-devops-app:latest .
 
       - name: Run Flask container in background
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
           docker run -d \
             --name flask-app \
+            -e NGROK_AUTHTOKEN \
             -p 5000:5000 \
             atelier-devops-app:latest
 
