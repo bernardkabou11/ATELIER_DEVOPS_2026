@@ -40,7 +40,7 @@ jobs:
         run: docker build -t atelier-devops-app:latest .
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.30.0
         with:
           image-ref: atelier-devops-app:latest
           format: table
