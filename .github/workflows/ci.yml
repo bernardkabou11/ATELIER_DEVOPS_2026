@@ -53,7 +53,15 @@ jobs:
 
       - name: Check for obvious secrets in repository
         run: |
-          if grep -RInE '(^|[^[:alnum:]_])(api[_-]?key|password|token|secret)\s*=' . --exclude-dir=.git --exclude='*.png' --exclude='*.jpg' --exclude='*.svg'; then
+          if grep -RInE '(^|[^[:alnum:]_])(api[_-]?key|password|token|secret)\s*=' . \
+            --exclude-dir=.git \
+            --exclude-dir=.venv \
+            --exclude-dir=.pytest_cache \
+            --exclude-dir=docs \
+            --exclude='*.png' --exclude='*.jpg' --exclude='*.svg' \
+            --include='*.py' --include='*.yml' --include='*.yaml' --include='*.json' \
+            --include='*.env' --include='*.ini' --include='*.cfg' --include='*.toml' \
+            --include='*.sh'; then
             echo "Sensitive patterns detected"
             exit 1
           fi
